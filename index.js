@@ -5,79 +5,102 @@ var log = require('bunyan').createLogger({
     name: 'user-mongoose-adaptor'
 });
 
-module.exports = {
-    schemaPlugin: function(schema, options) {
-        var options = processOptions(userOptions);
-        schema.add(processSchemaFields(schema, options));
-        extend(schema.methods, getMethods(options));
-        extend(schema.statics, getStatics(options));
-    },
-    create: function(UserModel, options) {
-        var options = processOptions(userOptions);
+///////////////////////////
+//        HELPERS        //
+///////////////////////////
 
-        return {
-            connect: function() {
-                return new Promise(function(resolve, reject) {
-                    log.info('Try connecting to mongodb');
+function schemaPlugin(schema, options) {
+    options = processOptions(options);
+    schema.add(processSchemaFields(schema, options));
+    extend(schema.methods, getMethods(options));
+}
 
-                    mongoose.connect(options.mongoURI, options.mongoOptions,
-                        function(err) {
-                            if (err) {
-                                log.info('Error connecting to mongodb:', err);
-                                reject(err);
-                            } else {
-                                log.info('Connected to mongodb');
-                                resolve();
-                            }
-                        }
-                    );
-                });
-            },
-            findById: function(id) {
-                return UserModel.findById(id);
-            },
-            findByUsername: function(username) {
-                return UserModel.findByUsername(username);
-            },
-            serialize: function(user) {
-                return user.serialize();
-            },
-            getId: function(user) {
-                return user.id;
-            },
-            getSalt: function(user) {
-                return user[options.saltField];
-            },
-            getHash: function(user) {
-                return user[options.hashField];
-            },
-            getLoginAttempts: function(user) {
-                return user[options.loginAttemptsField];
-            },
-            getLoginAttemptLockTime: function(user) {
-                return user[options.loginAttemptLockTimeField];
-            },
-            create: function(props) {
-                return new UserModel(props).save();
-            },
-            update: function(user, changes) {
-                if (changes) {
-                    var keys = Object.keys(changes);
+function connect(options) {
+    return new Promise(function(resolve, reject) {
+        log.info('Try connecting to mongodb');
 
-                    if (keys.length) {
-                        keys.forEach(function(key) {
-                            user[key] = changes[key];
-                        });
+        mongoose.connect(options.mongoURI, options.mongoOptions);
 
-                        return user.save();
-                    }
-                }
-
-                return Promise.resolve(user);
+        mongoose.connection.once('open', function(err) {
+            if (err) {
+                log.info('Error connecting to mongodb:', err);
+                reject(err);
+            } else {
+                log.info('Connected to mongodb');
+                resolve();
             }
-        };
+        });
+
+        mongoose.connection.on('error', function(err) {
+            console.error('MongoDB error: %s', err);
+        });
+    });
+}
+
+function findById(id) {
+    var self = this;
+
+    return new Promise(function(resolve, reject) {
+        self.findById(id, function(err, user) {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(user);
+            }
+        });
+    });
+}
+
+function serialize(user) {
+    return user.serialize();
+}
+
+function getUserField(fieldName, user) {
+    return user[fieldName];
+}
+
+function create(UserModel, props) {
+    return new UserModel(props).save();
+}
+
+function update(user, changes) {
+    if (changes) {
+        var keys = Object.keys(changes);
+
+        if (keys.length) {
+            keys.forEach(function(key) {
+                user[key] = changes[key];
+            });
+
+            return user.save();
+        }
     }
-};
+
+    return Promise.resolve(user);
+}
+
+function findByUsername(options, username) {
+    var self = this;
+
+    return new Promise(function(resolve, reject) {
+        var queryParameters = {};
+
+        // if specified, convert the username to lowercase
+        if (username && options.usernameLowerCase) {
+            username = username.toLowerCase();
+        }
+
+        queryParameters[options.usernameField] = username;
+
+        self.findOne(queryParameters, function(err, user) {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(user);
+            }
+        });
+    });
+}
 
 function processOptions(options) {
     if (!options.mongoURI) {
@@ -96,6 +119,8 @@ function processOptions(options) {
     options.lastLogoutField = options.lastLogoutField || 'lastLogout';
     options.loginAttemptsField = options.loginAttemptsField || 'loginAttempts';
     options.loginAttemptLockTimeField = options.loginAttemptLockTimeField || 'loginAttemptLockTime';
+
+    return options;
 }
 
 function processSchemaFields(schema, options) {
@@ -166,20 +191,27 @@ function getMethods(options) {
     return methods;
 }
 
-function getStatics(options) {
-    var statics = {};
+///////////////////////////
+//        PUBLIC         //
+///////////////////////////
 
-    statics.findByUsername = function(username) {
-        var queryParameters = {};
+module.exports = {
+    schemaPlugin: schemaPlugin,
+    create: function(UserModel, options) {
+        options = processOptions(options);
 
-        // if specified, convert the username to lowercase
-        if (username && options.usernameLowerCase) {
-            username = username.toLowerCase();
-        }
-
-        queryParameters[options.usernameField] = username;
-        return this.findOne(queryParameters);
-    };
-
-    return statics;
-}
+        return {
+            connect: connect.bind(null, options),
+            findById: findById.bind(UserModel),
+            findByUsername: findByUsername.bind(UserModel, options),
+            getId: getUserField.bind(null, 'id'),
+            getSalt: getUserField.bind(null, options.saltField),
+            getHash: getUserField.bind(null, options.hashField),
+            getLoginAttempts: getUserField.bind(null, options.loginAttemptsField),
+            getLoginAttemptLockTime: getUserField.bind(null, options.loginAttemptLockTimeField),
+            serialize: serialize,
+            create: create.bind(null, UserModel),
+            update: update
+        };
+    }
+};
