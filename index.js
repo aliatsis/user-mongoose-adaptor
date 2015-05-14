@@ -80,7 +80,7 @@ function serialize(options, user) {
 }
 
 function getUserField(fieldName, user) {
-    return user[fieldName];
+    return user.get(fieldName);
 }
 
 function create(UserModel, props) {
