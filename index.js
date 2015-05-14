@@ -86,7 +86,7 @@ function getUserField(fieldName, user) {
 function parseChanges(changes, options) {
     var result = {};
 
-    Object.keys(changes).forEach(funtion(key) {
+    Object.keys(changes).forEach(function(key) {
         // kinda crappy way of doing this
         // the changes come in a format that should correspond
         // directly to the adapator option names {key}Field (e.g. {loginAttempts}Field)
