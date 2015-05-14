@@ -5,6 +5,8 @@ var log = require('bunyan').createLogger({
     name: 'user-mongoose-adaptor'
 });
 
+var defaultOptions = require('./defaultOptions');
+
 ///////////////////////////
 //        HELPERS        //
 ///////////////////////////
@@ -107,20 +109,7 @@ function processOptions(options) {
         throw new Error('MissingMongoURIError');
     }
 
-    options.includedFields = options.includedFields || [];
-    options.excludedFields = options.excludedFields || [];
-    options.usernameUnique = options.usernameUnique === false || true;
-    options.usernameLowerCase = options.usernameLowerCase === false || true;
-
-    options.usernameField = options.usernameField || 'username';
-    options.hashField = options.hashField || 'hash';
-    options.saltField = options.saltField || 'salt';
-    options.lastLoginField = options.lastLoginField || 'lastLogin';
-    options.lastLogoutField = options.lastLogoutField || 'lastLogout';
-    options.loginAttemptsField = options.loginAttemptsField || 'loginAttempts';
-    options.loginAttemptLockTimeField = options.loginAttemptLockTimeField || 'loginAttemptLockTime';
-
-    return options;
+    return extend({}, defaultOptions, options);
 }
 
 function processSchemaFields(schema, options) {
@@ -144,7 +133,7 @@ function processSchemaFields(schema, options) {
     schemaFields[options.lastLoginField] = Number;
     schemaFields[options.lastLogoutField] = Number;
 
-    if (options.limitAttempts) {
+    if (options.limitLoginAttempts) {
         schemaFields[options.loginAttemptsField] = {
             type: Number,
             default: 0
@@ -195,23 +184,22 @@ function getMethods(options) {
 //        PUBLIC         //
 ///////////////////////////
 
-module.exports = {
-    schemaPlugin: schemaPlugin,
-    create: function(UserModel, options) {
-        options = processOptions(options);
+module.exports = function(UserModel, options) {
+    options = processOptions(options);
 
-        return {
-            connect: connect.bind(null, options),
-            findById: findById.bind(UserModel),
-            findByUsername: findByUsername.bind(UserModel, options),
-            getId: getUserField.bind(null, 'id'),
-            getSalt: getUserField.bind(null, options.saltField),
-            getHash: getUserField.bind(null, options.hashField),
-            getLoginAttempts: getUserField.bind(null, options.loginAttemptsField),
-            getLoginAttemptLockTime: getUserField.bind(null, options.loginAttemptLockTimeField),
-            serialize: serialize,
-            create: create.bind(null, UserModel),
-            update: update
-        };
-    }
+    UserModel.schema.plugin(schemaPlugin, options);
+
+    return {
+        connect: connect.bind(null, options),
+        findById: findById.bind(UserModel),
+        findByUsername: findByUsername.bind(UserModel, options),
+        getId: getUserField.bind(null, 'id'),
+        getSalt: getUserField.bind(null, options.saltField),
+        getHash: getUserField.bind(null, options.hashField),
+        getLoginAttempts: getUserField.bind(null, options.loginAttemptsField),
+        getLoginAttemptLockTime: getUserField.bind(null, options.loginAttemptLockTimeField),
+        serialize: serialize,
+        create: create.bind(null, UserModel),
+        update: update
+    };
 };
