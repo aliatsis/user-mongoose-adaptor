@@ -83,13 +83,26 @@ function getUserField(fieldName, user) {
     return user.get(fieldName);
 }
 
+function parseChanges(changes, options) {
+    var result = {};
+
+    Object.keys(changes).forEach(funtion(key) {
+        // kinda crappy way of doing this
+        // the changes come in a format that should correspond
+        // directly to the adapator option names {key}Field (e.g. {loginAttempts}Field)
+        result[options[key + 'Field']] = changes[key];
+    });
+
+    return result;
+}
+
 function create(UserModel, props) {
     return new UserModel(props).save();
 }
 
-function update(user, changes) {
+function update(options, user, changes) {
     if (changes) {
-        user.set(changes);
+        user.set(parseChanges(changes, options));
         return user.save();
     }
 
@@ -182,6 +195,6 @@ module.exports = function(UserModel, options) {
         getLoginAttemptLockTime: getUserField.bind(null, options.loginAttemptLockTimeField),
         serialize: serialize.bind(null, options),
         create: create.bind(null, UserModel),
-        update: update
+        update: update.bind(null, options)
     };
 };
