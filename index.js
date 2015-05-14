@@ -89,15 +89,8 @@ function create(UserModel, props) {
 
 function update(user, changes) {
     if (changes) {
-        var keys = Object.keys(changes);
-
-        if (keys.length) {
-            keys.forEach(function(key) {
-                user[key] = changes[key];
-            });
-
-            return user.save();
-        }
+        user.set(changes);
+        return user.save();
     }
 
     return Promise.resolve(user);
