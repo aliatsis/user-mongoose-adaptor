@@ -14,7 +14,6 @@ var defaultOptions = require('./defaultOptions');
 function schemaPlugin(schema, options) {
     options = processOptions(options);
     schema.add(processSchemaFields(schema, options));
-    extend(schema.methods, getMethods(options));
 }
 
 function connect(options) {
@@ -53,8 +52,31 @@ function findById(id) {
     });
 }
 
-function serialize(user) {
-    return user.serialize();
+function serialize(options, user) {
+    return user.toObject({
+        transform: function(doc, ret) {
+            var result = {
+                id: ret._id
+            };
+
+            Object.keys(ret).forEach(function(field) {
+                var include = true;
+
+                if (options.includedFields) {
+                    include = options.includedFields.indexOf(field) > -1;
+                } else if (options.excludedFields) {
+                    include = options.excludedFields.indexOf(field) === -1;
+                }
+
+                if (include) {
+                    result[field] = ret[field];
+                }
+            });
+
+            return result;
+        },
+        versionKey: false
+    });
 }
 
 function getUserField(fieldName, user) {
@@ -147,39 +169,6 @@ function processSchemaFields(schema, options) {
     return schemaFields;
 }
 
-function getMethods(options) {
-    var methods = {};
-
-    methods.serialize = function() {
-        return this.toObject({
-            transform: function(doc, ret) {
-                var result = {
-                    id: ret._id
-                };
-
-                Object.keys(ret).forEach(function(field) {
-                    var include = true;
-
-                    if (options.includedFields) {
-                        include = options.includedFields.indexOf(field) > -1;
-                    } else if (options.excludedFields) {
-                        include = options.excludedFields.indexOf(field) === -1;
-                    }
-
-                    if (include) {
-                        result[field] = ret[field];
-                    }
-                });
-
-                return result;
-            },
-            versionKey: false
-        });
-    };
-
-    return methods;
-}
-
 ///////////////////////////
 //        PUBLIC         //
 ///////////////////////////
@@ -198,7 +187,7 @@ module.exports = function(UserModel, options) {
         getHash: getUserField.bind(null, options.hashField),
         getLoginAttempts: getUserField.bind(null, options.loginAttemptsField),
         getLoginAttemptLockTime: getUserField.bind(null, options.loginAttemptLockTimeField),
-        serialize: serialize,
+        serialize: serialize.bind(null, options),
         create: create.bind(null, UserModel),
         update: update
     };
