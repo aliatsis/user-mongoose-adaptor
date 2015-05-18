@@ -193,6 +193,8 @@ module.exports = function(UserModel, options) {
         getHash: getUserField.bind(null, options.hashField),
         getLoginAttempts: getUserField.bind(null, options.loginAttemptsField),
         getLoginAttemptLockTime: getUserField.bind(null, options.loginAttemptLockTimeField),
+        getLastLogin: getUserField.bind(null, options.lastLoginField),
+        getLastLogout: getUserField.bind(null, options.lastLogoutField),
         serialize: serialize.bind(null, options),
         create: create.bind(null, UserModel),
         update: update.bind(null, options)
