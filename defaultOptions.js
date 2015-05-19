@@ -3,7 +3,6 @@ module.exports = {
     excludedFields: [],
     includedProfileFields: [],
     excludedProfileFields: [],
-    usernameUnique: true,
     usernameLowerCase: true,
     profileField: 'profile',
     usernameField: 'username',
