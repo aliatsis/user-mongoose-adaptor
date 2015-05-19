@@ -53,28 +53,26 @@ function findById(id) {
 }
 
 function toObject(document, includedFields, excludedFields) {
-    return document.toObject({
-        transform: function(doc, ret) {
-            var result = {};
-
-            Object.keys(ret).forEach(function(field) {
-                var include = true;
-
-                if (includedFields) {
-                    include = includedFields.indexOf(field) > -1;
-                } else if (excludedFields) {
-                    include = excludedFields.indexOf(field) === -1;
-                }
-
-                if (include) {
-                    result[field] = ret[field];
-                }
-            });
-
-            return result;
-        },
+    var obj = document.toObject({
         versionKey: false
     });
+    var result = {};
+
+    Object.keys(obj).forEach(function(field) {
+        var include = true;
+
+        if (includedFields) {
+            include = includedFields.indexOf(field) > -1;
+        } else if (excludedFields) {
+            include = excludedFields.indexOf(field) === -1;
+        }
+
+        if (include) {
+            result[field] = obj[field];
+        }
+    });
+
+    return result;
 }
 
 function serialize(options, user) {
