@@ -146,8 +146,7 @@ function findByUsername(options, username) {
             username = username.toLowerCase();
         }
 
-        queryParameters[options.profileField] = {};
-        queryParameters[options.profileField][options.usernameField] = username;
+        queryParameters[options.profileField + '.' + options.usernameField] = username;
 
         self.findOne(queryParameters, function(err, user) {
             if (err) {
