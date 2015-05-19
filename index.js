@@ -165,19 +165,18 @@ function processSchemaFields(schema, options) {
         throw new Error('MissingSchemaError');
     }
 
-    var profileSchema = schema.path(options.profileField);
     var schemaFields = {};
 
-    if (profileSchema) {
-        if (!profileSchema.path(options.usernameField)) {
-            throw new Error('MissingUsernameInProfileSchemaError');
+    if (schema.nested[options.profileField]) {
+        if (!schema.path(options.profileField + '.' + options.usernameField)) {
+            throw new Error('MissingUsernameInProfileError');
         }
 
-        if (!profileSchema.path(options.emailField)) {
-            throw new Error('MissingEmailInProfileSchemaError');
+        if (!schema.path(options.profileField + '.' + options.emailField)) {
+            throw new Error('MissingEmailInProfileError');
         }
     } else {
-        throw new Error('MissingUserProfileSchemaError');
+        throw new Error('MissingUserProfileError');
     }
 
 
