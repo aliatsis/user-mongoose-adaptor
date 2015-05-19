@@ -1,8 +1,8 @@
 module.exports = {
-    includedFields: [],
-    excludedFields: [],
-    includedProfileFields: [],
-    excludedProfileFields: [],
+    includedFields: null,
+    excludedFields: null,
+    includedProfileFields: null,
+    excludedProfileFields: null,
     usernameLowerCase: true,
     profileField: 'profile',
     usernameField: 'username',
