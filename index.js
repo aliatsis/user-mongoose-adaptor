@@ -52,20 +52,18 @@ function findById(id) {
     });
 }
 
-function serialize(options, user) {
-    return user.toObject({
+function toObject(document, includedFields, excludedFields) {
+    return document.toObject({
         transform: function(doc, ret) {
-            var result = {
-                id: ret._id
-            };
+            var result = {};
 
             Object.keys(ret).forEach(function(field) {
                 var include = true;
 
-                if (options.includedFields) {
-                    include = options.includedFields.indexOf(field) > -1;
-                } else if (options.excludedFields) {
-                    include = options.excludedFields.indexOf(field) === -1;
+                if (includedFields) {
+                    include = includedFields.indexOf(field) > -1;
+                } else if (excludedFields) {
+                    include = excludedFields.indexOf(field) === -1;
                 }
 
                 if (include) {
@@ -77,6 +75,18 @@ function serialize(options, user) {
         },
         versionKey: false
     });
+}
+
+function serialize(options, user) {
+    var result = toObject(user, options.includedFields, options.excludedFields);
+
+    result.id = user._id; // add id
+
+    return result;
+}
+
+function getProfile(options, user) {
+    return toObject(user[options.profileField], options.includedProfileFields, options.excludedProfileFields);
 }
 
 function getUserField(fieldName, user) {
@@ -109,6 +119,15 @@ function update(options, user, changes) {
     return Promise.resolve(user);
 }
 
+function editProfile(options, user, profileChanges) {
+    if (profileChanges) {
+        user[options.profileField].set(profileChanges);
+        return user.save();
+    }
+
+    return Promise.resolve(user);
+}
+
 function findByUsername(options, username) {
     var self = this;
 
@@ -120,7 +139,8 @@ function findByUsername(options, username) {
             username = username.toLowerCase();
         }
 
-        queryParameters[options.usernameField] = username;
+        queryParameters[options.profileField] = {};
+        queryParameters[options.profileField][options.usernameField] = username;
 
         self.findOne(queryParameters, function(err, user) {
             if (err) {
@@ -145,16 +165,21 @@ function processSchemaFields(schema, options) {
         throw new Error('MissingSchemaError');
     }
 
+    var profileSchema = schema.path(options.profileField);
     var schemaFields = {};
 
-    if (!schema.path(options.usernameField)) {
-        schemaFields[options.usernameField] = {
-            type: String,
-            trim: true,
-            unique: !!options.usernameUnique,
-            lowercase: !!options.usernameLowerCase
-        };
+    if (profileSchema) {
+        if (!profileSchema.path(options.usernameField)) {
+            throw new Error('MissingUsernameInProfileSchemaError');
+        }
+
+        if (!profileSchema.path(options.emailField)) {
+            throw new Error('MissingEmailInProfileSchemaError');
+        }
+    } else {
+        throw new Error('MissingUserProfileSchemaError');
     }
+
 
     schemaFields[options.hashField] = String;
     schemaFields[options.saltField] = String;
@@ -195,8 +220,10 @@ module.exports = function(UserModel, options) {
         getLoginAttemptLockTime: getUserField.bind(null, options.loginAttemptLockTimeField),
         getLastLogin: getUserField.bind(null, options.lastLoginField),
         getLastLogout: getUserField.bind(null, options.lastLogoutField),
+        getProfile: getProfile.bind(null, options),
         serialize: serialize.bind(null, options),
         create: create.bind(null, UserModel),
-        update: update.bind(null, options)
+        update: update.bind(null, options),
+        editProfile: editProfile.bind(null, options)
     };
 };
