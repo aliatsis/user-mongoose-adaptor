@@ -104,22 +104,27 @@ function parseChanges(changes, options) {
     return result;
 }
 
-function create(UserModel, props) {
-    return new UserModel(props).save();
+function create(UserModel, options, props) {
+    var userSchema = UserModel.schema;
+    var resultProps = {};
+    resultProps[options.profileField] = {};
+
+    if (props) {
+        Object.keys(props).forEach(function(key) {
+            if (userSchema.path(key)) {
+                resultProps[key] = props[key];
+            } else if (userSchema.path(options.profileField + '.' + key)) {
+                resultProps[options.profileField][key] = props[key];
+            }
+        });
+    }
+
+    return new UserModel(resultProps).save();
 }
 
 function update(options, user, changes) {
     if (changes) {
         user.set(parseChanges(changes, options));
-        return user.save();
-    }
-
-    return Promise.resolve(user);
-}
-
-function editProfile(options, user, profileChanges) {
-    if (profileChanges) {
-        user[options.profileField].set(profileChanges);
         return user.save();
     }
 
@@ -219,8 +224,8 @@ module.exports = function(UserModel, options) {
         getLastLogout: getUserField.bind(null, options.lastLogoutField),
         getProfile: getProfile.bind(null, options),
         serialize: serialize.bind(null, options),
-        create: create.bind(null, UserModel),
+        create: create.bind(null, UserModel, options),
         update: update.bind(null, options),
-        editProfile: editProfile.bind(null, options)
+        editProfile: update.bind(null, options)
     };
 };
