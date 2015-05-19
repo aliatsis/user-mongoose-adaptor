@@ -78,6 +78,10 @@ function toObject(document, includedFields, excludedFields) {
 function serialize(options, user) {
     var result = toObject(user, options.includedFields, options.excludedFields);
 
+    if (result[options.profileField]) {
+        result[options.profileField] = getProfile(options, user);
+    }
+
     result.id = user._id; // add id
 
     return result;
