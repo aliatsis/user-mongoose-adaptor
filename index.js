@@ -95,7 +95,7 @@ function getUserField(fieldName, user) {
     return user.get(fieldName);
 }
 
-function parseProps(changes, UserModel, options) {
+function parseProps(props, UserModel, options) {
     var userSchema = UserModel.schema;
     var result = {};
 
@@ -104,7 +104,7 @@ function parseProps(changes, UserModel, options) {
     if (props) {
         Object.keys(props).forEach(function(key) {
             // kinda crappy way of doing this
-            // the changes come in a format that should correspond
+            // the props come in a format that should correspond
             // directly to the adapator option names {key}Field (e.g. {loginAttempts}Field)
             var propName = options[key + 'Field'] || key;
 
