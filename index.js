@@ -95,40 +95,38 @@ function getUserField(fieldName, user) {
     return user.get(fieldName);
 }
 
-function parseChanges(changes, options) {
+function parseProps(changes, UserModel, options) {
+    var userSchema = UserModel.schema;
     var result = {};
 
-    Object.keys(changes).forEach(function(key) {
-        // kinda crappy way of doing this
-        // the changes come in a format that should correspond
-        // directly to the adapator option names {key}Field (e.g. {loginAttempts}Field)
-        result[options[key + 'Field']] = changes[key];
-    });
+    result[options.profileField] = {};
+
+    if (props) {
+        Object.keys(props).forEach(function(key) {
+            // kinda crappy way of doing this
+            // the changes come in a format that should correspond
+            // directly to the adapator option names {key}Field (e.g. {loginAttempts}Field)
+            var propName = options[key + 'Field'] || key;
+
+            if (userSchema.path(propName)) {
+                result[propName] = props[key];
+            } else if (userSchema.path(options.profileField + '.' + propName)) {
+                result[options.profileField][propName] = props[key];
+            }
+        });
+    }
 
     return result;
 }
 
 function create(UserModel, options, props) {
-    var userSchema = UserModel.schema;
-    var resultProps = {};
-    resultProps[options.profileField] = {};
-
-    if (props) {
-        Object.keys(props).forEach(function(key) {
-            if (userSchema.path(key)) {
-                resultProps[key] = props[key];
-            } else if (userSchema.path(options.profileField + '.' + key)) {
-                resultProps[options.profileField][key] = props[key];
-            }
-        });
-    }
-
-    return new UserModel(resultProps).save();
+    var schemaProps = parseProps(props, UserModel, options);
+    return new UserModel(schemaProps).save();
 }
 
-function update(options, user, changes) {
+function update(UserModel, options, user, changes) {
     if (changes) {
-        user.set(parseChanges(changes, options));
+        user.set(parseProps(changes, UserModel, options));
         return user.save();
     }
 
@@ -228,7 +226,7 @@ module.exports = function(UserModel, options) {
         getProfile: getProfile.bind(null, options),
         serialize: serialize.bind(null, options),
         create: create.bind(null, UserModel, options),
-        update: update.bind(null, options),
-        editProfile: update.bind(null, options)
+        update: update.bind(null, UserModel, options),
+        editProfile: update.bind(null, UserModel, options)
     };
 };
