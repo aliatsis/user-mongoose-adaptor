@@ -2,7 +2,7 @@ var mongoose = require("mongoose");
 var Promise = require("es6-promise").Promise;
 var extend = require('extend');
 var log = require('bunyan').createLogger({
-    name: 'user-mongoose-adaptor'
+    name: 'userbase-mongoose-adaptor'
 });
 
 var defaultOptions = require('./defaultOptions');
