@@ -227,6 +227,6 @@ module.exports = function(UserModel, options) {
         serialize: serialize.bind(null, options),
         create: create.bind(null, UserModel, options),
         update: update.bind(null, UserModel, options),
-        editProfile: update.bind(null, UserModel, options)
+        updateProfile: update.bind(null, UserModel, options)
     };
 };
