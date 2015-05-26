@@ -158,7 +158,7 @@ function findByUsername(options, username) {
         username = username.toLowerCase();
     }
 
-    return findByField.call(this, options, options.usernameField, username, true);
+    return findByField.call(this, options, options.usernameField, true, username);
 }
 
 function processOptions(options) {
