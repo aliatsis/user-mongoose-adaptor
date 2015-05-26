@@ -191,6 +191,8 @@ function processSchemaFields(schema, options) {
 
     schemaFields[options.hashField] = String;
     schemaFields[options.saltField] = String;
+    schemaFields[options.resetPasswordHashField] = String;
+    schemaFields[options.resetPasswordExpirationField] = Number;
     schemaFields[options.lastLoginField] = Number;
     schemaFields[options.lastLogoutField] = Number;
 
@@ -230,7 +232,7 @@ module.exports = function(UserModel, options) {
         getLoginAttemptLockTime: getUserField.bind(null, options.loginAttemptLockTimeField),
         getLastLogin: getUserField.bind(null, options.lastLoginField),
         getLastLogout: getUserField.bind(null, options.lastLogoutField),
-        getResetPasswordExpiration: getUserField.bind(null, options.getResetPasswordExpiration),
+        getResetPasswordExpiration: getUserField.bind(null, options.resetPasswordExpirationField),
         getProfile: getProfile.bind(null, options),
         serialize: serialize.bind(null, options),
         create: create.bind(null, UserModel, options),
