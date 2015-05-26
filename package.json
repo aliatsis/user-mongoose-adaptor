@@ -1,6 +1,6 @@
 {
   "name": "userbase-mongoose-adaptor",
-  "version": "0.0.20",
+  "version": "0.0.21",
   "description": "A MongoDB Mongoose adaptor for the 'userbase' module",
   "main": "index.js",
   "scripts": {},
