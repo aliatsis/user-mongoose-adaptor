@@ -133,18 +133,14 @@ function update(UserModel, options, user, changes) {
     return Promise.resolve(user);
 }
 
-function findByUsername(options, username) {
+function findByField(options, field, isProfileField, value) {
     var self = this;
 
     return new Promise(function(resolve, reject) {
         var queryParameters = {};
+        var fieldName = isProfileField ? options.profileField + '.' + field : field;
 
-        // if specified, convert the username to lowercase
-        if (username && options.usernameLowerCase) {
-            username = username.toLowerCase();
-        }
-
-        queryParameters[options.profileField + '.' + options.usernameField] = username;
+        queryParameters[fieldName] = value;
 
         self.findOne(queryParameters, function(err, user) {
             if (err) {
@@ -154,6 +150,15 @@ function findByUsername(options, username) {
             }
         });
     });
+}
+
+function findByUsername(options, username) {
+    // if specified, convert the username to lowercase
+    if (username && options.usernameLowerCase) {
+        username = username.toLowerCase();
+    }
+
+    return findByField(options, options.usernameField, username, true);
 }
 
 function processOptions(options) {
@@ -216,6 +221,8 @@ module.exports = function(UserModel, options) {
         connect: connect.bind(null, options),
         findById: findById.bind(UserModel),
         findByUsername: findByUsername.bind(UserModel, options),
+        findByEmail: findByField.bind(UserModel, options, options.emailField, true),
+        findByResetPasswordHash: findByField.bind(UserModel, options, options.resetPasswordHashField, false),
         getId: getUserField.bind(null, 'id'),
         getSalt: getUserField.bind(null, options.saltField),
         getHash: getUserField.bind(null, options.hashField),
@@ -223,6 +230,7 @@ module.exports = function(UserModel, options) {
         getLoginAttemptLockTime: getUserField.bind(null, options.loginAttemptLockTimeField),
         getLastLogin: getUserField.bind(null, options.lastLoginField),
         getLastLogout: getUserField.bind(null, options.lastLogoutField),
+        getResetPasswordExpiration: getUserField.bind(null, options.getResetPasswordExpiration),
         getProfile: getProfile.bind(null, options),
         serialize: serialize.bind(null, options),
         create: create.bind(null, UserModel, options),

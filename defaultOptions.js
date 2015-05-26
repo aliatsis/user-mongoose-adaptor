@@ -13,5 +13,7 @@ module.exports = {
     lastLogoutField: 'lastLogout',
     limitLoginAttempts: true,
     loginAttemptsField: 'loginAttempts',
-    loginAttemptLockTimeField: 'loginAttemptLockTime'
+    loginAttemptLockTimeField: 'loginAttemptLockTime',
+    resetPasswordHashField: 'resetPasswordHash',
+    resetPasswordExpirationField: 'resetPasswordExpiration'
 };
