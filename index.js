@@ -75,18 +75,6 @@ function toObject(document, includedFields, excludedFields) {
     return result;
 }
 
-function serialize(options, user) {
-    var result = toObject(user, options.includedFields, options.excludedFields);
-
-    if (result[options.profileField]) {
-        result[options.profileField] = getProfile(options, user);
-    }
-
-    result.id = user._id; // add id
-
-    return result;
-}
-
 function getProfile(options, user) {
     return toObject(user[options.profileField], options.includedProfileFields, options.excludedProfileFields);
 }
@@ -234,7 +222,6 @@ module.exports = function(UserModel, options) {
         getLastLogout: getUserField.bind(null, options.lastLogoutField),
         getResetPasswordExpiration: getUserField.bind(null, options.resetPasswordExpirationField),
         getProfile: getProfile.bind(null, options),
-        serialize: serialize.bind(null, options),
         create: create.bind(null, UserModel, options),
         update: update.bind(null, UserModel, options),
         updateProfile: update.bind(null, UserModel, options)
