@@ -20,5 +20,9 @@
   },
   "peerDependencies": {
     "mongoose": ">=4.0.3"
+  },
+  "devDependencies": {
+    "eslint": "~1.0.0",
+    "eslint-plugin-jasmine": "~1.1.0"
   }
 }
