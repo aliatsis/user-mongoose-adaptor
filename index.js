@@ -1,5 +1,5 @@
-var mongoose = require("mongoose");
-var Promise = require("es6-promise").Promise;
+var mongoose = require('mongoose');
+var Promise = require('es6-promise').Promise;
 var extend = require('extend');
 var log = require('bunyan').createLogger({
     name: 'userbase-mongoose-adaptor'
@@ -14,6 +14,31 @@ var defaultOptions = require('./defaultOptions');
 function schemaPlugin(schema, options) {
     options = processOptions(options);
     schema.add(processSchemaFields(schema, options));
+
+    schema.options.toObject = schema.options.toObject || {};
+
+    if (!schema.options.toObject.transform) {
+        schema.options.toObject.transform = function(doc, ret) {
+            var result = {};
+            var obj = ret.profile || {};
+
+            Object.keys(obj).forEach(function(field) {
+                var include = true;
+
+                if (options.includedProfileFields) {
+                    include = !!~options.includedProfileFields.indexOf(field);
+                } else if (options.excludedProfileFields) {
+                    include = !~options.excludedProfileFields.indexOf(field);
+                }
+
+                if (include) {
+                    result[field] = obj[field];
+                }
+            });
+
+            return result;
+        };
+    }
 }
 
 function connect(options) {
@@ -52,31 +77,10 @@ function findById(id) {
     });
 }
 
-function toObject(document, includedFields, excludedFields) {
-    var obj = document.toObject({
+function getProfile(options, user) {
+    return user.toObject({
         versionKey: false
     });
-    var result = {};
-
-    Object.keys(obj).forEach(function(field) {
-        var include = true;
-
-        if (includedFields) {
-            include = includedFields.indexOf(field) > -1;
-        } else if (excludedFields) {
-            include = excludedFields.indexOf(field) === -1;
-        }
-
-        if (include) {
-            result[field] = obj[field];
-        }
-    });
-
-    return result;
-}
-
-function getProfile(options, user) {
-    return toObject(user[options.profileField], options.includedProfileFields, options.excludedProfileFields);
 }
 
 function getUserField(fieldName, user) {

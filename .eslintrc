@@ -2,7 +2,6 @@
 // vim: ft=json
 {
     "plugins": [
-        "angular",
         "jasmine"
     ],
     "rules": {
