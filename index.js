@@ -14,31 +14,6 @@ var defaultOptions = require('./defaultOptions');
 function schemaPlugin(schema, options) {
     options = processOptions(options);
     schema.add(processSchemaFields(schema, options));
-
-    schema.options.toObject = schema.options.toObject || {};
-
-    if (!schema.options.toObject.transform) {
-        schema.options.toObject.transform = function(doc, ret) {
-            var result = {};
-            var obj = ret.profile || {};
-
-            Object.keys(obj).forEach(function(field) {
-                var include = true;
-
-                if (options.includedProfileFields) {
-                    include = !!~options.includedProfileFields.indexOf(field);
-                } else if (options.excludedProfileFields) {
-                    include = !~options.excludedProfileFields.indexOf(field);
-                }
-
-                if (include) {
-                    result[field] = obj[field];
-                }
-            });
-
-            return result;
-        };
-    }
 }
 
 function connect(options) {
@@ -78,9 +53,32 @@ function findById(id) {
 }
 
 function getProfile(options, user) {
-    return user.toObject({
+    if (typeof options.getProfile === 'function') {
+        return options.getProfile(user);
+    }
+
+    var userObj = user.toObject({
         versionKey: false
     });
+
+    var result = {};
+    var obj = userObj.profile || {};
+
+    Object.keys(obj).forEach(function(field) {
+        var include = true;
+
+        if (options.includedProfileFields) {
+            include = !!~options.includedProfileFields.indexOf(field);
+        } else if (options.excludedProfileFields) {
+            include = !~options.excludedProfileFields.indexOf(field);
+        }
+
+        if (include) {
+            result[field] = obj[field];
+        }
+    });
+
+    return result;
 }
 
 function getUserField(fieldName, user) {
