@@ -4,14 +4,17 @@ var extend = require('extend');
 var log = require('bunyan').createLogger({
     name: 'userbase-mongoose-adaptor'
 });
+var pluginRegistered = false;
 
 var defaultOptions = require('./defaultOptions');
+var mainOptions = extend({}, defaultOptions);
 
 ///////////////////////////
 //        HELPERS        //
 ///////////////////////////
 
 function schemaPlugin(schema, options) {
+    pluginRegistered = true;
     options = processOptions(options);
     schema.add(processSchemaFields(schema, options));
 }
@@ -53,8 +56,8 @@ function findById(id) {
 }
 
 function getProfile(options, user) {
-    if (typeof options.getProfile === 'function') {
-        return options.getProfile(user);
+    if (typeof options.getPublicProfile === 'function') {
+        return options.getPublicProfile(user);
     }
 
     var userObj = user.toObject({
@@ -151,12 +154,14 @@ function findByUsername(options, username) {
     return findByField.call(this, options, options.usernameField, true, username);
 }
 
-function processOptions(options) {
-    if (!options.mongoURI) {
+function processOptions(options, enforceMongoURI) {
+    options = extend(mainOptions, options);
+
+    if (enforceMongoURI && !options.mongoURI) {
         throw new Error('MissingMongoURIError');
     }
 
-    return extend({}, defaultOptions, options);
+    return options;
 }
 
 function processSchemaFields(schema, options) {
@@ -205,9 +210,11 @@ function processSchemaFields(schema, options) {
 ///////////////////////////
 
 module.exports = function(UserModel, options) {
-    options = processOptions(options);
+    options = processOptions(options, true);
 
-    UserModel.schema.plugin(schemaPlugin, options);
+    if (!pluginRegistered) {
+        throw new Error('userbase-mongoose-adaptor: user schema plugin must be registered be the adaptor');
+    }
 
     return {
         connect: connect.bind(null, options),
@@ -229,3 +236,5 @@ module.exports = function(UserModel, options) {
         updateProfile: update.bind(null, UserModel, options)
     };
 };
+
+module.exports.userPlugin = schemaPlugin;
