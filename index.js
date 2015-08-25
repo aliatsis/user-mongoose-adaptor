@@ -1,4 +1,4 @@
-var mongoose = require('mongoose');
+var mongoose = require('mongoose-nested');
 var Promise = require('es6-promise').Promise;
 var extend = require('extend');
 var log = require('bunyan').createLogger({
