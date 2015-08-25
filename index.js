@@ -96,145 +96,145 @@ function parseProps(props, UserModel, options) {
 
     if (props) {
         Object.keys(props).forEach(function(key) {
-                // kinda crappy way of doing this
-                // the props come in a format that should correspond
-                // directly to the adapator option names {key}Field (e.g. {loginAttempts}Field)
-                var propName = options[key + 'Field'] || key;
+            // kinda crappy way of doing this
+            // the props come in a format that should correspond
+            // directly to the adapator option names {key}Field (e.g. {loginAttempts}Field)
+            var propName = options[key + 'Field'] || key;
 
-                if (userSchema.path(propName)) {
-                    result[propName] = props[key];
-                } else if (userSchema.path(options.profileField + '.' + propName)) {
-                    result[options.profileField][propName] = props[key];
-
-                });
-        }
-
-        return result;
-    }
-
-    function create(UserModel, options, props) {
-        var schemaProps = parseProps(props, UserModel, options);
-        return new UserModel(schemaProps).save();
-    }
-
-    function update(UserModel, options, user, changes) {
-        if (changes) {
-            user.set(parseProps(changes, UserModel, options));
-            return user.save();
-        }
-
-        return Promise.resolve(user);
-    }
-
-    function findByField(options, field, isProfileField, value) {
-        var self = this;
-
-        return new Promise(function(resolve, reject) {
-            var queryParameters = {};
-            var fieldName = isProfileField ? options.profileField + '.' + field : field;
-
-            queryParameters[fieldName] = value;
-
-            self.findOne(queryParameters, function(err, user) {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(user);
-                }
-            });
+            if (userSchema.path(propName)) {
+                result[propName] = props[key];
+            } else if (userSchema.path(options.profileField + '.' + propName)) {
+                result[options.profileField][propName] = props[key];
+            }
         });
     }
 
-    function findByUsername(options, username) {
-        // if specified, convert the username to lowercase
-        if (username && options.usernameLowerCase) {
-            username = username.toLowerCase();
-        }
+    return result;
+}
 
-        return findByField.call(this, options, options.usernameField, true, username);
+function create(UserModel, options, props) {
+    var schemaProps = parseProps(props, UserModel, options);
+    return new UserModel(schemaProps).save();
+}
+
+function update(UserModel, options, user, changes) {
+    if (changes) {
+        user.set(parseProps(changes, UserModel, options));
+        return user.save();
     }
 
-    function processOptions(options, enforceMongoURI) {
-        options = extend(mainOptions, options);
+    return Promise.resolve(user);
+}
 
-        if (enforceMongoURI && !options.mongoURI) {
-            throw new Error('MissingMongoURIError');
-        }
+function findByField(options, field, isProfileField, value) {
+    var self = this;
 
-        return options;
-    }
+    return new Promise(function(resolve, reject) {
+        var queryParameters = {};
+        var fieldName = isProfileField ? options.profileField + '.' + field : field;
 
-    function processSchemaFields(schema, options) {
-        if (!schema) {
-            throw new Error('MissingSchemaError');
-        }
+        queryParameters[fieldName] = value;
 
-        var schemaFields = {};
-
-        if (schema.nested[options.profileField]) {
-            if (!schema.path(options.profileField + '.' + options.usernameField)) {
-                throw new Error('MissingUsernameInProfileError');
+        self.findOne(queryParameters, function(err, user) {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(user);
             }
+        });
+    });
+}
 
-            if (!schema.path(options.profileField + '.' + options.emailField)) {
-                throw new Error('MissingEmailInProfileError');
-            }
-        } else {
-            throw new Error('MissingUserProfileError');
-        }
-
-
-        schemaFields[options.hashField] = String;
-        schemaFields[options.saltField] = String;
-        schemaFields[options.resetPasswordHashField] = String;
-        schemaFields[options.resetPasswordExpirationField] = Number;
-        schemaFields[options.lastLoginField] = Number;
-        schemaFields[options.lastLogoutField] = Number;
-
-        if (options.limitLoginAttempts) {
-            schemaFields[options.loginAttemptsField] = {
-                type: Number,
-                default: 0
-            };
-
-            schemaFields[options.loginAttemptLockTimeField] = {
-                type: Number
-            };
-        }
-
-        return schemaFields;
+function findByUsername(options, username) {
+    // if specified, convert the username to lowercase
+    if (username && options.usernameLowerCase) {
+        username = username.toLowerCase();
     }
 
-    ///////////////////////////
-    //        PUBLIC         //
-    ///////////////////////////
+    return findByField.call(this, options, options.usernameField, true, username);
+}
 
-    module.exports = function(UserModel, options) {
-        options = processOptions(options, true);
+function processOptions(options, enforceMongoURI) {
+    options = extend(mainOptions, options);
 
-        if (!pluginRegistered) {
-            throw new Error('userbase-mongoose-adaptor: user schema plugin must be registered be the adaptor');
+    if (enforceMongoURI && !options.mongoURI) {
+        throw new Error('MissingMongoURIError');
+    }
+
+    return options;
+}
+
+function processSchemaFields(schema, options) {
+    if (!schema) {
+        throw new Error('MissingSchemaError');
+    }
+
+    var schemaFields = {};
+
+    if (schema.nested[options.profileField]) {
+        if (!schema.path(options.profileField + '.' + options.usernameField)) {
+            throw new Error('MissingUsernameInProfileError');
         }
 
-        return {
-            connect: connect.bind(null, options),
-            findById: findById.bind(UserModel),
-            findByUsername: findByUsername.bind(UserModel, options),
-            findByEmail: findByField.bind(UserModel, options, options.emailField, true),
-            findByResetPasswordHash: findByField.bind(UserModel, options, options.resetPasswordHashField, false),
-            getId: getUserField.bind(null, 'id'),
-            getSalt: getUserField.bind(null, options.saltField),
-            getHash: getUserField.bind(null, options.hashField),
-            getLoginAttempts: getUserField.bind(null, options.loginAttemptsField),
-            getLoginAttemptLockTime: getUserField.bind(null, options.loginAttemptLockTimeField),
-            getLastLogin: getUserField.bind(null, options.lastLoginField),
-            getLastLogout: getUserField.bind(null, options.lastLogoutField),
-            getResetPasswordExpiration: getUserField.bind(null, options.resetPasswordExpirationField),
-            getProfile: getProfile.bind(null, options),
-            create: create.bind(null, UserModel, options),
-            update: update.bind(null, UserModel, options),
-            updateProfile: update.bind(null, UserModel, options)
+        if (!schema.path(options.profileField + '.' + options.emailField)) {
+            throw new Error('MissingEmailInProfileError');
+        }
+    } else {
+        throw new Error('MissingUserProfileError');
+    }
+
+
+    schemaFields[options.hashField] = String;
+    schemaFields[options.saltField] = String;
+    schemaFields[options.resetPasswordHashField] = String;
+    schemaFields[options.resetPasswordExpirationField] = Number;
+    schemaFields[options.lastLoginField] = Number;
+    schemaFields[options.lastLogoutField] = Number;
+
+    if (options.limitLoginAttempts) {
+        schemaFields[options.loginAttemptsField] = {
+            type: Number,
+            default: 0
         };
-    };
 
-    module.exports.userPlugin = schemaPlugin;
+        schemaFields[options.loginAttemptLockTimeField] = {
+            type: Number
+        };
+    }
+
+    return schemaFields;
+}
+
+///////////////////////////
+//        PUBLIC         //
+///////////////////////////
+
+module.exports = function(UserModel, options) {
+    options = processOptions(options, true);
+
+    if (!pluginRegistered) {
+        throw new Error('userbase-mongoose-adaptor: user schema plugin must be registered be the adaptor');
+    }
+
+    return {
+        connect: connect.bind(null, options),
+        findById: findById.bind(UserModel),
+        findByUsername: findByUsername.bind(UserModel, options),
+        findByEmail: findByField.bind(UserModel, options, options.emailField, true),
+        findByResetPasswordHash: findByField.bind(UserModel, options, options.resetPasswordHashField, false),
+        getId: getUserField.bind(null, 'id'),
+        getSalt: getUserField.bind(null, options.saltField),
+        getHash: getUserField.bind(null, options.hashField),
+        getLoginAttempts: getUserField.bind(null, options.loginAttemptsField),
+        getLoginAttemptLockTime: getUserField.bind(null, options.loginAttemptLockTimeField),
+        getLastLogin: getUserField.bind(null, options.lastLoginField),
+        getLastLogout: getUserField.bind(null, options.lastLogoutField),
+        getResetPasswordExpiration: getUserField.bind(null, options.resetPasswordExpirationField),
+        getProfile: getProfile.bind(null, options),
+        create: create.bind(null, UserModel, options),
+        update: update.bind(null, UserModel, options),
+        updateProfile: update.bind(null, UserModel, options)
+    };
+};
+
+module.exports.userPlugin = schemaPlugin;
