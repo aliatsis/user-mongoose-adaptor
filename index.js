@@ -1,9 +1,8 @@
 var mongoose = require('mongoose-nested');
 var Promise = require('es6-promise').Promise;
 var extend = require('extend');
-var log = require('bunyan').createLogger({
-    name: 'userbase-mongoose-adaptor'
-});
+var log = require('./logger');
+
 var pluginRegistered = false;
 
 var defaultOptions = require('./defaultOptions');
@@ -14,195 +13,203 @@ var mainOptions = extend({}, defaultOptions);
 ///////////////////////////
 
 function schemaPlugin(schema, options) {
-    pluginRegistered = true;
-    options = processOptions(options);
-    schema.add(processSchemaFields(schema, options));
+  pluginRegistered = true;
+  options = processOptions(options);
+  schema.add(processSchemaFields(schema, options));
 }
 
 function connect(options) {
-    return new Promise(function(resolve, reject) {
-        log.info('Try connecting to mongodb');
+  return new Promise(function(resolve, reject) {
+    log.info('Try connecting to mongodb');
 
-        mongoose.connect(options.mongoURI, options.mongoOptions);
+    mongoose.connect(options.mongoURI, options.mongoOptions);
 
-        mongoose.connection.once('open', function(err) {
-            if (err) {
-                log.info('Error connecting to mongodb:', err);
-                reject(err);
-            } else {
-                log.info('Connected to mongodb');
-                resolve();
-            }
-        });
-
-        mongoose.connection.on('error', function(err) {
-            console.error('MongoDB error: %s', err);
-        });
+    mongoose.connection.once('open', function(err) {
+      if (err) {
+        log.error(err, 'Error connecting to mongodb');
+        reject(err);
+      } else {
+        log.info('Connected to mongodb');
+        resolve();
+      }
     });
+
+    mongoose.connection.on('error', function(err) {
+      log.error(err, 'MongoDB error');
+    });
+  });
 }
 
 function findById(id) {
-    var self = this;
+  var self = this;
 
-    return new Promise(function(resolve, reject) {
-        self.findById(id, function(err, user) {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(user);
-            }
-        });
+  return new Promise(function(resolve, reject) {
+    self.findById(id, function(err, user) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(user);
+      }
     });
+  });
 }
 
 function getProfile(options, user) {
-    if (typeof options.getPublicProfile === 'function') {
-        return options.getPublicProfile(user);
+  if (typeof options.getPublicProfile === 'function') {
+    return options.getPublicProfile(user);
+  }
+
+  var userObj = user.toObject({
+    versionKey: false
+  });
+
+  var result = {};
+  var obj = userObj.profile || {};
+
+  Object.keys(obj).forEach(function(field) {
+    var include = true;
+
+    if (options.includedProfileFields) {
+      include = !!~options.includedProfileFields.indexOf(field);
+    } else if (options.excludedProfileFields) {
+      include = !~options.excludedProfileFields.indexOf(field);
     }
 
-    var userObj = user.toObject({
-        versionKey: false
-    });
+    if (include) {
+      result[field] = obj[field];
+    }
+  });
 
-    var result = {};
-    var obj = userObj.profile || {};
-
-    Object.keys(obj).forEach(function(field) {
-        var include = true;
-
-        if (options.includedProfileFields) {
-            include = !!~options.includedProfileFields.indexOf(field);
-        } else if (options.excludedProfileFields) {
-            include = !~options.excludedProfileFields.indexOf(field);
-        }
-
-        if (include) {
-            result[field] = obj[field];
-        }
-    });
-
-    return result;
+  return result;
 }
 
 function getUserField(fieldName, user) {
-    return user.get(fieldName);
+  return user.get(fieldName);
 }
 
 function parseProps(props, UserModel, options) {
-    var userSchema = UserModel.schema;
-    var result = {};
+  var userSchema = UserModel.schema;
+  var result = {};
 
-    result[options.profileField] = {};
+  result[options.profileField] = {};
 
-    if (props) {
-        Object.keys(props).forEach(function(key) {
-            // kinda crappy way of doing this
-            // the props come in a format that should correspond
-            // directly to the adapator option names {key}Field (e.g. {loginAttempts}Field)
-            var propName = options[key + 'Field'] || key;
+  if (props) {
+    Object.keys(props).forEach(function(key) {
+      // kinda crappy way of doing this
+      // the props come in a format that should correspond
+      // directly to the adapator option names {key}Field (e.g. {loginAttempts}Field)
+      var propName = options[key + 'Field'] || key;
 
-            if (userSchema.path(propName)) {
-                result[propName] = props[key];
-            } else if (userSchema.path(options.profileField + '.' + propName)) {
-                result[options.profileField][propName] = props[key];
-            }
-        });
-    }
+      if (userSchema.path(propName)) {
+        result[propName] = props[key];
+      } else if (userSchema.path(options.profileField + '.' + propName)) {
+        result[options.profileField][propName] = props[key];
+      }
+    });
+  }
 
-    return result;
+  return result;
 }
 
 function create(UserModel, options, props) {
-    var schemaProps = parseProps(props, UserModel, options);
-    return new UserModel(schemaProps).save();
+  var schemaProps = parseProps(props, UserModel, options);
+
+  // wrap with native Promise until mongoose supports all features
+  return new Promise(function(resolve, reject) {
+    (new UserModel(schemaProps)).save().then(resolve, reject);
+  });
 }
 
 function update(UserModel, options, user, changes) {
-    if (changes) {
-        user.set(parseProps(changes, UserModel, options));
-        return user.save();
-    }
+  if (changes) {
+    user.set(parseProps(changes, UserModel, options));
 
-    return Promise.resolve(user);
+    // wrap with native Promise until mongoose supports all features
+    return new Promise(function(resolve, reject) {
+      user.save().then(resolve, reject);
+    });
+  }
+
+  return Promise.resolve(user);
 }
 
 function findByField(options, field, isProfileField, value) {
-    var self = this;
+  var self = this;
 
-    return new Promise(function(resolve, reject) {
-        var queryParameters = {};
-        var fieldName = isProfileField ? options.profileField + '.' + field : field;
+  return new Promise(function(resolve, reject) {
+    var queryParameters = {};
+    var fieldName = isProfileField ? options.profileField + '.' + field : field;
 
-        queryParameters[fieldName] = value;
+    queryParameters[fieldName] = value;
 
-        self.findOne(queryParameters, function(err, user) {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(user);
-            }
-        });
+    self.findOne(queryParameters, function(err, user) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(user);
+      }
     });
+  });
 }
 
 function findByUsername(options, username) {
-    // if specified, convert the username to lowercase
-    if (username && options.usernameLowerCase) {
-        username = username.toLowerCase();
-    }
+  // if specified, convert the username to lowercase
+  if (username && options.usernameLowerCase) {
+    username = username.toLowerCase();
+  }
 
-    return findByField.call(this, options, options.usernameField, true, username);
+  return findByField.call(this, options, options.usernameField, true, username);
 }
 
 function processOptions(options, enforceMongoURI) {
-    options = extend(mainOptions, options);
+  options = extend(mainOptions, options);
 
-    if (enforceMongoURI && !options.mongoURI) {
-        throw new Error('MissingMongoURIError');
-    }
+  if (enforceMongoURI && !options.mongoURI) {
+    throw new Error('MissingMongoURIError');
+  }
 
-    return options;
+  return options;
 }
 
 function processSchemaFields(schema, options) {
-    if (!schema) {
-        throw new Error('MissingSchemaError');
+  if (!schema) {
+    throw new Error('MissingSchemaError');
+  }
+
+  var schemaFields = {};
+
+  if (schema.nested[options.profileField]) {
+    if (!schema.path(options.profileField + '.' + options.usernameField)) {
+      throw new Error('MissingUsernameInProfileError');
     }
 
-    var schemaFields = {};
-
-    if (schema.nested[options.profileField]) {
-        if (!schema.path(options.profileField + '.' + options.usernameField)) {
-            throw new Error('MissingUsernameInProfileError');
-        }
-
-        if (!schema.path(options.profileField + '.' + options.emailField)) {
-            throw new Error('MissingEmailInProfileError');
-        }
-    } else {
-        throw new Error('MissingUserProfileError');
+    if (!schema.path(options.profileField + '.' + options.emailField)) {
+      throw new Error('MissingEmailInProfileError');
     }
+  } else {
+    throw new Error('MissingUserProfileError');
+  }
 
 
-    schemaFields[options.hashField] = String;
-    schemaFields[options.saltField] = String;
-    schemaFields[options.resetPasswordHashField] = String;
-    schemaFields[options.resetPasswordExpirationField] = Number;
-    schemaFields[options.lastLoginField] = Number;
-    schemaFields[options.lastLogoutField] = Number;
+  schemaFields[options.hashField] = String;
+  schemaFields[options.saltField] = String;
+  schemaFields[options.resetPasswordHashField] = String;
+  schemaFields[options.resetPasswordExpirationField] = Number;
+  schemaFields[options.lastLoginField] = Number;
+  schemaFields[options.lastLogoutField] = Number;
 
-    if (options.limitLoginAttempts) {
-        schemaFields[options.loginAttemptsField] = {
-            type: Number,
-            default: 0
-        };
+  if (options.limitLoginAttempts) {
+    schemaFields[options.loginAttemptsField] = {
+      type: Number,
+      default: 0
+    };
 
-        schemaFields[options.loginAttemptLockTimeField] = {
-            type: Number
-        };
-    }
+    schemaFields[options.loginAttemptLockTimeField] = {
+      type: Number
+    };
+  }
 
-    return schemaFields;
+  return schemaFields;
 }
 
 ///////////////////////////
@@ -210,31 +217,31 @@ function processSchemaFields(schema, options) {
 ///////////////////////////
 
 module.exports = function(UserModel, options) {
-    options = processOptions(options, true);
+  options = processOptions(options, true);
 
-    if (!pluginRegistered) {
-        throw new Error('userbase-mongoose-adaptor: user schema plugin must be registered be the adaptor');
-    }
+  if (!pluginRegistered) {
+    throw new Error('userbase-mongoose-adaptor: user schema plugin must be registered be the adaptor');
+  }
 
-    return {
-        connect: connect.bind(null, options),
-        findById: findById.bind(UserModel),
-        findByUsername: findByUsername.bind(UserModel, options),
-        findByEmail: findByField.bind(UserModel, options, options.emailField, true),
-        findByResetPasswordHash: findByField.bind(UserModel, options, options.resetPasswordHashField, false),
-        getId: getUserField.bind(null, 'id'),
-        getSalt: getUserField.bind(null, options.saltField),
-        getHash: getUserField.bind(null, options.hashField),
-        getLoginAttempts: getUserField.bind(null, options.loginAttemptsField),
-        getLoginAttemptLockTime: getUserField.bind(null, options.loginAttemptLockTimeField),
-        getLastLogin: getUserField.bind(null, options.lastLoginField),
-        getLastLogout: getUserField.bind(null, options.lastLogoutField),
-        getResetPasswordExpiration: getUserField.bind(null, options.resetPasswordExpirationField),
-        getProfile: getProfile.bind(null, options),
-        create: create.bind(null, UserModel, options),
-        update: update.bind(null, UserModel, options),
-        updateProfile: update.bind(null, UserModel, options)
-    };
+  return {
+    connect: connect.bind(null, options),
+    findById: findById.bind(UserModel),
+    findByUsername: findByUsername.bind(UserModel, options),
+    findByEmail: findByField.bind(UserModel, options, options.emailField, true),
+    findByResetPasswordHash: findByField.bind(UserModel, options, options.resetPasswordHashField, false),
+    getId: getUserField.bind(null, 'id'),
+    getSalt: getUserField.bind(null, options.saltField),
+    getHash: getUserField.bind(null, options.hashField),
+    getLoginAttempts: getUserField.bind(null, options.loginAttemptsField),
+    getLoginAttemptLockTime: getUserField.bind(null, options.loginAttemptLockTimeField),
+    getLastLogin: getUserField.bind(null, options.lastLoginField),
+    getLastLogout: getUserField.bind(null, options.lastLogoutField),
+    getResetPasswordExpiration: getUserField.bind(null, options.resetPasswordExpirationField),
+    getProfile: getProfile.bind(null, options),
+    create: create.bind(null, UserModel, options),
+    update: update.bind(null, UserModel, options),
+    updateProfile: update.bind(null, UserModel, options)
+  };
 };
 
 module.exports.userPlugin = schemaPlugin;
