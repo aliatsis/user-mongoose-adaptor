@@ -1,7 +1,8 @@
-var mongoose = require('mongoose-nested');
-var Promise = require('es6-promise').Promise;
+var mongoose = require('mongoose');
 var extend = require('extend');
 var log = require('./logger');
+
+mongoose.Promise = global.Promise;
 
 var pluginRegistered = false;
 
