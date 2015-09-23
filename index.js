@@ -162,10 +162,6 @@ function findByUsername(options, username) {
   return findByField.call(this, options, options.usernameField, true, username);
 }
 
-function findByGoogleProfile(options, googleProfile) {
-  return findByField.call(this, options, options.googleIdField, true, googleProfile.id);
-}
-
 function processOptions(options, enforceMongoURI) {
   options = extend(mainOptions, options);
 
@@ -184,13 +180,25 @@ function processSchemaFields(schema, options) {
   var schemaFields = {};
 
   if (schema.nested[options.profileField]) {
+    var profilePaths = {};
+
     if (!schema.path(options.profileField + '.' + options.usernameField)) {
-      throw new Error('MissingUsernameInProfileError');
+      profilePaths[options.usernameField] = String;
     }
 
     if (!schema.path(options.profileField + '.' + options.emailField)) {
-      throw new Error('MissingEmailInProfileError');
+      profilePaths[options.emailField] = String;
     }
+
+    if (options.googleIdField && !schema.path(options.profileField + '.' + options.googleIdField)) {
+      profilePaths[options.googleIdField] = String;
+    }
+
+    if (options.facebookIdField && !schema.path(options.profileField + '.' + options.facebookIdField)) {
+      profilePaths[options.facebookIdField] = String;
+    }
+
+    schemaFields[options.profileField] = profilePaths;
   } else {
     throw new Error('MissingUserProfileError');
   }
@@ -202,7 +210,6 @@ function processSchemaFields(schema, options) {
   schemaFields[options.resetPasswordExpirationField] = Number;
   schemaFields[options.lastLoginField] = Number;
   schemaFields[options.lastLogoutField] = Number;
-  schemaFields[options.googleIdField] = String;
 
   if (options.limitLoginAttempts) {
     schemaFields[options.loginAttemptsField] = {
@@ -234,7 +241,8 @@ module.exports = function(UserModel, options) {
     findById: findById.bind(UserModel),
     findByUsername: findByUsername.bind(UserModel, options),
     findByEmail: findByField.bind(UserModel, options, options.emailField, true),
-    findByGoogleProfile: findByGoogleProfile.bind(UserModel, options),
+    findByGoogleId: findByField.bind(UserModel, options, options.googleIdField, true),
+    findByFacebookId: findByField.bind(UserModel, options, options.facebookIdField, true),
     findByResetPasswordHash: findByField.bind(UserModel, options, options.resetPasswordHashField, false),
     getId: getUserField.bind(null, 'id'),
     getSalt: getUserField.bind(null, options.saltField),
