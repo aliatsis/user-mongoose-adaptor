@@ -15,5 +15,6 @@ module.exports = {
   loginAttemptsField: 'loginAttempts',
   loginAttemptLockTimeField: 'loginAttemptLockTime',
   resetPasswordHashField: 'resetPasswordHash',
-  resetPasswordExpirationField: 'resetPasswordExpiration'
+  resetPasswordExpirationField: 'resetPasswordExpiration',
+  googleIdField: 'googleId'
 };
