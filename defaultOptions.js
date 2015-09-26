@@ -9,6 +9,7 @@ module.exports = {
   emailField: 'email',
   hashField: 'hash',
   saltField: 'salt',
+  signupDateField: 'signupDate',
   lastLoginField: 'lastLogin',
   lastLogoutField: 'lastLogout',
   limitLoginAttempts: true,

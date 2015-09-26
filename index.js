@@ -210,6 +210,7 @@ function processSchemaFields(schema, options) {
   schemaFields[options.resetPasswordExpirationField] = Number;
   schemaFields[options.lastLoginField] = Number;
   schemaFields[options.lastLogoutField] = Number;
+  schemaFields[options.signupDateField] = Number;
 
   if (options.limitLoginAttempts) {
     schemaFields[options.loginAttemptsField] = {
