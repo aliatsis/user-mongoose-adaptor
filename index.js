@@ -179,7 +179,7 @@ function processSchemaFields(schema, options) {
 
   var schemaFields = {};
 
-  if (schema.nested[options.profileField]) {
+  if (schema.path(options.profileField) || schema.nested[options.profileField]) {
     var profilePaths = {};
 
     if (!schema.path(options.profileField + '.' + options.usernameField)) {
