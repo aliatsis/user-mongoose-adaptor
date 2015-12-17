@@ -123,7 +123,25 @@ function create(UserModel, options, props) {
 
 function update(UserModel, options, user, changes) {
   if (changes) {
-    user.set(parseProps(changes, UserModel, options));
+    var props = parseProps(changes, UserModel, options);
+    var profileProps = props[options.profileField];
+    var userProps = Object.keys(props).reduce(function(result, key) {
+      if (key !== options.profileField) {
+        result = result || {};
+        result[key] = props[key];
+      }
+
+      return result;
+    });
+
+    // set the profile schema directly to not improperly overwrite
+    if (profileProps) {
+      user[options.profileField].set(profileProps);
+    }
+
+    if (userProps) {
+      user.set(userProps);
+    }
 
     // wrap with native Promise until mongoose supports all features
     return new Promise(function(resolve, reject) {
