@@ -19,7 +19,7 @@
     "extend": "~2.0.1"
   },
   "peerDependencies": {
-    "mongoose": "4.3.2-pre"
+    "mongoose": ">=4.1.0"
   },
   "devDependencies": {
     "eslint": "~1.0.0",
