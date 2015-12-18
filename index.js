@@ -20,12 +20,12 @@ function schemaPlugin(schema, options) {
 }
 
 function connect(options) {
-  return new Promise(function(resolve, reject) {
+  return new Promise(function (resolve, reject) {
     log.info('Try connecting to mongodb');
 
     mongoose.connect(options.mongoURI, options.mongoOptions);
 
-    mongoose.connection.once('open', function(err) {
+    mongoose.connection.once('open', function (err) {
       if (err) {
         log.error(err, 'Error connecting to mongodb');
         reject(err);
@@ -35,7 +35,7 @@ function connect(options) {
       }
     });
 
-    mongoose.connection.on('error', function(err) {
+    mongoose.connection.on('error', function (err) {
       log.error(err, 'MongoDB error');
     });
   });
@@ -44,8 +44,8 @@ function connect(options) {
 function findById(id) {
   var self = this;
 
-  return new Promise(function(resolve, reject) {
-    self.findById(id, function(err, user) {
+  return new Promise(function (resolve, reject) {
+    self.findById(id, function (err, user) {
       if (err) {
         reject(err);
       } else {
@@ -67,7 +67,7 @@ function getProfile(options, user) {
   var result = {};
   var obj = userObj.profile || {};
 
-  Object.keys(obj).forEach(function(field) {
+  Object.keys(obj).forEach(function (field) {
     var include = true;
 
     if (options.includedProfileFields) {
@@ -89,21 +89,28 @@ function getUserField(fieldName, user) {
 }
 
 function parseProps(props, UserModel, options) {
-  var userSchema = UserModel.schema;
+  var schema = UserModel.schema;
+  var profileSchema = schema;
+  var profilePathPrefix = options.profileField + '.';
+  var isSingleNestedProfile = isSingleNestedSchemaPath(schema, options.profileField);
   var result = {};
 
-  result[options.profileField] = {};
+  if (isSingleNestedProfile) {
+    profileSchema = schema.path(options.profileField).schema;
+    profilePathPrefix = '';
+  }
 
   if (props) {
-    Object.keys(props).forEach(function(key) {
+    Object.keys(props).forEach(function (key) {
       // kinda crappy way of doing this
       // the props come in a format that should correspond
-      // directly to the adapator option names {key}Field (e.g. {loginAttempts}Field)
+      // directly to the adaptor option names {key}Field (e.g. {loginAttempts}Field)
       var propName = options[key + 'Field'] || key;
 
-      if (userSchema.path(propName)) {
+      if (schema.path(propName)) {
         result[propName] = props[key];
-      } else if (userSchema.path(options.profileField + '.' + propName)) {
+      } else if (profileSchema.path(profilePathPrefix + propName)) {
+        result[options.profileField] = result[options.profileField] || {};
         result[options.profileField][propName] = props[key];
       }
     });
@@ -116,7 +123,7 @@ function create(UserModel, options, props) {
   var schemaProps = parseProps(props, UserModel, options);
 
   // wrap with native Promise until mongoose supports all features
-  return new Promise(function(resolve, reject) {
+  return new Promise(function (resolve, reject) {
     (new UserModel(schemaProps)).save().then(resolve, reject);
   });
 }
@@ -125,18 +132,18 @@ function update(UserModel, options, user, changes) {
   if (changes) {
     var props = parseProps(changes, UserModel, options);
     var profileProps = props[options.profileField];
-    var userProps = Object.keys(props).reduce(function(result, key) {
+    var userProps = Object.keys(props).reduce(function (result, key) {
       if (key !== options.profileField) {
         result = result || {};
         result[key] = props[key];
       }
 
       return result;
-    });
+    }, null);
 
     // set the profile schema directly to not improperly overwrite
     if (profileProps) {
-      user[options.profileField].set(profileProps);
+      user.get(options.profileField).set(profileProps);
     }
 
     if (userProps) {
@@ -144,7 +151,7 @@ function update(UserModel, options, user, changes) {
     }
 
     // wrap with native Promise until mongoose supports all features
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
       user.save().then(resolve, reject);
     });
   }
@@ -155,13 +162,13 @@ function update(UserModel, options, user, changes) {
 function findByField(options, field, isProfileField, value) {
   var self = this;
 
-  return new Promise(function(resolve, reject) {
+  return new Promise(function (resolve, reject) {
     var queryParameters = {};
     var fieldName = isProfileField ? options.profileField + '.' + field : field;
 
     queryParameters[fieldName] = value;
 
-    self.findOne(queryParameters, function(err, user) {
+    self.findOne(queryParameters, function (err, user) {
       if (err) {
         reject(err);
       } else {
@@ -190,33 +197,45 @@ function processOptions(options, enforceMongoURI) {
   return options;
 }
 
+function isSingleNestedSchemaPath(schema, path) {
+  var profilePath = schema.path(path);
+  return !!(profilePath && profilePath.$isSingleNested);
+}
+
 function processSchemaFields(schema, options) {
   if (!schema) {
     throw new Error('MissingSchemaError');
   }
 
+  var isSingleNestedProfile = isSingleNestedSchemaPath(schema, options.profileField);
   var schemaFields = {};
 
-  if (schema.path(options.profileField) || schema.nested[options.profileField]) {
+  if (isSingleNestedProfile || schema.nested[options.profileField]) {
+    var pathPrefix = isSingleNestedProfile ? '' : options.profileField + '.';
+    var profileSchema = isSingleNestedProfile ? schema.path(options.profileField).schema : schema;
     var profilePaths = {};
 
-    if (!schema.path(options.profileField + '.' + options.usernameField)) {
+    if (!profileSchema.path(pathPrefix + options.usernameField)) {
       profilePaths[options.usernameField] = String;
     }
 
-    if (!schema.path(options.profileField + '.' + options.emailField)) {
+    if (!profileSchema.path(pathPrefix + options.emailField)) {
       profilePaths[options.emailField] = String;
     }
 
-    if (options.googleIdField && !schema.path(options.profileField + '.' + options.googleIdField)) {
+    if (options.googleIdField && !profileSchema.path(pathPrefix + options.googleIdField)) {
       profilePaths[options.googleIdField] = String;
     }
 
-    if (options.facebookIdField && !schema.path(options.profileField + '.' + options.facebookIdField)) {
+    if (options.facebookIdField && !profileSchema.path(pathPrefix + options.facebookIdField)) {
       profilePaths[options.facebookIdField] = String;
     }
 
-    schemaFields[options.profileField] = profilePaths;
+    if (schema === profileSchema) {
+      schemaFields[options.profileField] = profilePaths;
+    } else {
+      profileSchema.add(profilePaths);
+    }
   } else {
     throw new Error('MissingUserProfileError');
   }
@@ -248,7 +267,7 @@ function processSchemaFields(schema, options) {
 //        PUBLIC         //
 ///////////////////////////
 
-module.exports = function(UserModel, options) {
+module.exports = function (UserModel, options) {
   options = processOptions(options, true);
 
   if (!pluginRegistered) {
